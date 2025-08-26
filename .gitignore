@@ -1,0 +1,7 @@
+__pycache__
+**/__pycache__
+/**__pycache__
+**/**__pycache__
+.venv
+input_data/private_keys.txt
+input_data/proxies.txt
