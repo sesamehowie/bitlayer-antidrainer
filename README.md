@@ -2,7 +2,7 @@
 
 **CONFIGURATION**
 
-Set up input_date files:
+Set up input_data files:
 private_keys.txt
 proxies.txt (format: user:pass@ip:port). ONLY HTTP FOR NOW
 
