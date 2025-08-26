@@ -24,6 +24,12 @@ python3 -m venv .venv
 . .venv/bin/activate
 ```
 
+**INSTALL DEPENDENCIES**
+
+```
+pip install -r requirements.txt
+```
+
 *RUN*
 
 ```
