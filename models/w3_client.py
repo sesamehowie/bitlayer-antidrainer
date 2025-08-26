@@ -23,6 +23,8 @@ class AsyncW3Client:
         self.provider, self.session = self.get_provider_and_session()
 
     def process_proxy(self):
+        self.logger.info(f"{self.id} - Formatting proxy...")
+
         user_pass, ip_port = self.proxy.split("@")
         user, password = [item.strip() for item in user_pass.split(":")]
         ip, port = [item.strip() for item in ip_port.split(":")]
@@ -30,6 +32,8 @@ class AsyncW3Client:
         return user, password, ip, port
 
     def get_provider_and_session(self):
+        self.logger.info(f"{self.id} - Setting up provider and session...")
+
         try:
             user, password, ip, port = self.process_proxy()
 
@@ -63,11 +67,15 @@ class AsyncW3Client:
             return None, None
 
     async def configure_web3_client(self):
+        self.logger.info(f"{self.id} - Configuring Web3 Client...")
+
         await self.provider.cache_async_session(self.session)
         w3 = AsyncWeb3(self.provider, modules={"eth": (AsyncEth,)})
         return w3
 
     async def get_balance(self, w3: AsyncWeb3):
+        self.logger.info(f"{self.id} - Getting balance for address {self.address} ...")
+
         try:
             balance = int(await w3.eth.get_balance(self.address))
             return balance
@@ -78,11 +86,13 @@ class AsyncW3Client:
             return 0
 
     async def get_transaction_fee(self, w3: AsyncWeb3):
+        self.logger.info(f"{self.id} - Retrieving fee data...")
+
         fee_dict = {"gas": 21500}
 
         for attempt in range(3):
             try:
-                gas_price = int(await w3.eth.gas_price) * 1.02
+                gas_price = int(int(await w3.eth.gas_price) * 1.02)
                 if gas_price:
                     fee_dict |= {"gasPrice": gas_price}
                     break
@@ -97,28 +107,43 @@ class AsyncW3Client:
     async def get_tx_data_if_sufficient_balance(
         self, w3: AsyncWeb3, deposit_address: str
     ):
+        self.logger.info(
+            f"{self.id} - Waiting for balance to generate transaction data..."
+        )
+
         balance = await self.get_balance(w3)
         fee = await self.get_transaction_fee(w3)
 
         if fee["gasPrice"] == 0:
-            fee["gasPrice"] = int(await w3.eth.gas_price * 1.05)
+            fee["gasPrice"] = int(int(await w3.eth.gas_price) * 1.05)
 
         total_fee = fee["gas"] * fee["gasPrice"]
         if balance > total_fee:
+            self.logger.info(
+                f"{self.id} - address {self.address} has enough balance to transfer tokens, creating transaction..."
+            )
+
             tx_data = {
                 "from": self.address,
                 "to": deposit_address,
                 "chainId": self.network.chain_id,
                 "gas": fee["gas"],
                 "gasPrice": fee["gasPrice"],
-                "value": balance - total_fee,
+                "value": int(balance - total_fee),
                 "nonce": await w3.eth.get_transaction_count(self.address),
             }
             return tx_data
         else:
+            self.logger.info(
+                f"{self.id} - Balance is insufficient to create a native token transfer."
+            )
             return None
 
     async def sign_and_send_transaction(self, w3: AsyncWeb3, tx_data: dict):
+        self.logger.info(
+            f"{self.id} - Creating transfer of {float(tx_data['value'] / 10 ** self.network.decimals):.6f} {self.network.token}.\nRecipient: {tx_data['to']}.\nNetwork: {self.network.name}"
+        )
+
         try:
             signed = w3.eth.account.sign_transaction(
                 transaction_dict=tx_data, private_key=self.private_key
@@ -129,7 +154,7 @@ class AsyncW3Client:
                 if tx_hash:
                     receipt = await w3.eth.wait_for_transaction_receipt(tx_hash.hex())
                     if receipt:
-                        self.logger.info(
+                        self.logger.success(
                             f"{self.id} - Transaction - {self.network.scanner}/tx/{tx_hash.hex()}"
                         )
                         return True
